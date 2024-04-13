@@ -70,6 +70,8 @@ func main() {
 
 	// Handler for weather data endpoint
 	router.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		fmt.Println(r.URL)
+
 		// Parse the query string
 		queryParams := r.URL.Query()
 
@@ -90,7 +92,7 @@ func main() {
 				data.DateUtc = strings.Replace(value[0], " ", "T", 1) + "Z"
 
 			// Parse numeric values
-			case "tempf", "windspeedmph", "windgustmph", "maxdailygust", "solarradiation", "hourlyrainin", "eventrainin", "dailyrainin", "weeklyrainin", "monthlyrainin", "yearlyrainin", "baromrelin", "baromabsin":
+			case "tempf", "tempinf", "windspeedmph", "windgustmph", "maxdailygust", "solarradiation", "hourlyrainin", "eventrainin", "dailyrainin", "weeklyrainin", "monthlyrainin", "yearlyrainin", "baromrelin", "baromabsin":
 				var fval float64
 				if _, err := fmt.Sscanln(value[0], &fval); err != nil {
 					fmt.Println("Error parsing value for", key, err)
