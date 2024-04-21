@@ -38,6 +38,15 @@ type WeatherData struct {
 	BaromRelIn     float64 `json:"baromrelin"`
 	BaromAbsIn     float64 `json:"baromabsin"`
 	BattIn         int     `json:"battin"`
+	DewPt          float64 `json:"dewpt"`
+	DewPtIn        float64 `json:"dewptin"`
+}
+
+func computeDewPt(temp float64, humidity int) float64 {
+	// DP = T - 9/25(100 - RH)
+	dp := temp - (float64(9) / float64(25) * (100 - float64(humidity)))
+
+	return dp
 }
 
 func main() {
@@ -119,6 +128,9 @@ func main() {
 			}
 		}
 
+		data.DewPt = computeDewPt(data.TempF, data.Humidity)
+		data.DewPtIn = computeDewPt(data.TempInF, data.HumidityIn)
+
 		// Convert struct to a point
 		tags := map[string]string{
 			"passkey":     data.Passkey,
@@ -149,6 +161,8 @@ func main() {
 			"baromrelin":     data.BaromRelIn,
 			"baromabsin":     data.BaromAbsIn,
 			"battin":         data.BattIn,
+			"dewpt":          data.DewPt,
+			"dewptin":        data.DewPtIn,
 		}
 
 		pdate, err := time.Parse(time.RFC3339, data.DateUtc)
