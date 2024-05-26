@@ -13,8 +13,8 @@ import (
 )
 
 type WeatherData struct {
-	Passkey        string  `json:"passkey"`
-	StationType    string  `json:"stationtype"`
+	Passkey string `json:"passkey"`
+	//StationType    string  `json:"stationtype"`
 	DateUtc        string  `json:"dateutc"`
 	TempF          float64 `json:"tempf"`
 	Humidity       int     `json:"humidity"`
@@ -79,7 +79,7 @@ func main() {
 
 	// Handler for weather data endpoint
 	router.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		fmt.Println(r.URL)
+		//fmt.Println(r.URL)
 
 		// Parse the query string
 		queryParams := r.URL.Query()
@@ -94,8 +94,8 @@ func main() {
 			case "PASSKEY":
 				data.Passkey = value[0]
 
-			case "stationtype":
-				data.StationType = value[0]
+			//case "stationtype":
+			//	data.StationType = value[0]
 
 			case "dateutc":
 				data.DateUtc = strings.Replace(value[0], " ", "T", 1) + "Z"
@@ -133,12 +133,12 @@ func main() {
 
 		// Convert struct to a point
 		tags := map[string]string{
-			"passkey":     data.Passkey,
-			"stationtype": data.StationType,
+			"passkey": data.Passkey,
+			//"stationtype": data.StationType,
 		}
 		fields := map[string]interface{}{
-			"passkey":        data.Passkey,
-			"stationtype":    data.StationType,
+			//"passkey": data.Passkey,
+			//"stationtype":    data.StationType,
 			"tempf":          data.TempF,
 			"humidity":       data.Humidity,
 			"windspeedmph":   data.WindSpeedMph,
