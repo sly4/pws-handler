@@ -182,6 +182,8 @@ func main() {
 		// Write the point to InfluxDB
 		if err := c.Write(bp); err != nil {
 			fmt.Println("Error writing batch points:", err)
+			fmt.Println(tags)
+			fmt.Println(fields)
 			return
 		}
 		fmt.Fprintf(w, "Data posted to InfluxDB successfully!")
