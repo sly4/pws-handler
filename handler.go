@@ -192,7 +192,54 @@ func main() {
 
 	// Start the server
 	fmt.Println("Server listening on port 8080")
-	if http.ListenAndServe(":8080", router) != nil {
+
+	// Create the HTTP server
+	srv := http.Server{
+		Addr: ":8080",
+		// ReadHeaderTimeout is the amount of time allowed to read
+		// request headers. The connection's read deadline is reset
+		// after reading the headers and the Handler can decide what
+		// is considered too slow for the body. If ReadHeaderTimeout
+		// is zero, the value of ReadTimeout is used. If both are
+		// zero, there is no timeout.
+		ReadHeaderTimeout: 15 * time.Second,
+
+		// ReadTimeout is the maximum duration for reading the entire
+		// request, including the body. A zero or negative value means
+		// there will be no timeout.
+		//
+		// Because ReadTimeout does not let Handlers make per-request
+		// decisions on each request body's acceptable deadline or
+		// upload rate, most users will prefer to use
+		// ReadHeaderTimeout. It is valid to use them both.
+		ReadTimeout: 15 * time.Second,
+
+		// WriteTimeout is the maximum duration before timing out
+		// writes of the response. It is reset whenever a new
+		// request's header is read. Like ReadTimeout, it does not
+		// let Handlers make decisions on a per-request basis.
+		// A zero or negative value means there will be no timeout.
+		WriteTimeout: 10 * time.Second,
+
+		// IdleTimeout is the maximum amount of time to wait for the
+		// next request when keep-alives are enabled. If IdleTimeout
+		// is zero, the value of ReadTimeout is used. If both are
+		// zero, there is no timeout.
+		IdleTimeout: 30 * time.Second,
+
+		Handler: router,
+	}
+
+	// For per request timeouts applications can wrap all `http.HandlerFunc(...)` in
+	// `http.TimeoutHandler`` and specify a timeout, but note the TimeoutHandler does not
+	// start ticking until all headers have been read.
+
+	// Listen with our custom server with timeouts configured
+	//if srv.ListenAndServe() != nil {
+	//	fmt.Println("ListenAndServe failed")
+	//}
+
+	if srv.ListenAndServe() != nil {
 		fmt.Println("ListenAndServe failed")
 	}
 }
