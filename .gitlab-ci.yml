@@ -20,11 +20,26 @@ format:
     - go vet $(go list ./... | grep -v /vendor/)
     - go test -race $(go list ./... | grep -v /vendor/)
 
-compile:
+compilebsd:
   stage: build
+  variables:
+    GOOS: freebsd
+    GOARCH: amd64
   script:
-    - mkdir -p mybinaries
-    - go build -o mybinaries ./...
+    - mkdir -p mybinaries/${GOOS}_${GOARCH}
+    - go build -o mybinaries/${GOOS}_${GOARCH} ./...
+  artifacts:
+    paths:
+      - mybinaries
+
+compilelinux:
+  stage: build
+  variables:
+    GOOS: linux
+    GOARCH: amd64
+  script:
+    - mkdir -p mybinaries/${GOOS}_${GOARCH}
+    - go build -o mybinaries/${GOOS}_${GOARCH} ./...
   artifacts:
     paths:
       - mybinaries
@@ -33,3 +48,8 @@ deploy:
   stage: deploy
   script: echo "Define your deployment script!"
   environment: production
+
+include:
+  - template: Jobs/Secret-Detection.gitlab-ci.yml
+  - template: Jobs/SAST.gitlab-ci.yml
+  - template: Jobs/Dependency-Scanning.gitlab-ci.yml
