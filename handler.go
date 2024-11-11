@@ -1,9 +1,11 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"net/http"
 	"reflect"
+	"strconv"
 	"strings"
 	"time"
 
@@ -50,13 +52,20 @@ func computeDewPt(temp float64, humidity int) float64 {
 }
 
 func main() {
+	ListenPortPtr := flag.Int("port", 8080, "Port to listen on for requests from PWS")
+
 	// InfluxDB connection details (replace with your credentials)
+	IdbAddrPtr := flag.String("IdbAddr", "http://192.168.86.36:8086", "URL to InfluxDB")
+	IdbUserPtr := flag.String("IdbUser", "mydb", "InfluxDB username")
+	IdbPassPtr := flag.String("IdbPass", "mydb", "InfluxDB password")
+
+	flag.Parse()
 
 	// client := influxdb.NewClient(influxURL, token)
 	c, err := client.NewHTTPClient(client.HTTPConfig{
-		Addr:     "http://192.168.86.36:8086",
-		Username: "mydb",
-		Password: "mydb",
+		Addr:     *IdbAddrPtr,
+		Username: *IdbUserPtr,
+		Password: *IdbPassPtr,
 	})
 	if err != nil {
 		fmt.Println("Error creating InfluxDB client:", err)
@@ -191,11 +200,12 @@ func main() {
 	})
 
 	// Start the server
-	fmt.Println("Server listening on port 8080")
+	fmt.Printf("Server listening on port %d\n", *ListenPortPtr)
+	fmt.Printf("Muxing to %s\n", *IdbAddrPtr)
 
 	// Create the HTTP server
 	srv := http.Server{
-		Addr: ":8080",
+		Addr: ":" + strconv.Itoa(*ListenPortPtr),
 		// ReadHeaderTimeout is the amount of time allowed to read
 		// request headers. The connection's read deadline is reset
 		// after reading the headers and the Handler can decide what
