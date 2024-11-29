@@ -44,6 +44,41 @@ type WeatherData struct {
 	DewPtIn        float64 `json:"dewptin"`
 }
 
+type Wunderground struct {
+	Action             string  `json:"action"`           // [action=updateraw] -- always supply this parameter to indicate you are making a weather observation upload
+	Id                 string  `json:"ID"`               // [ID as registered by wunderground.com]
+	Password           string  `json:"PASSWORD"`         // [Station Key registered with this PWS ID, case sensitive]
+	DateUtc            string  `json:"dateutc"`          // - [YYYY-MM-DD HH:MM:SS (mysql format)] In Universal Coordinated Time (UTC) Not local time
+	WindDir            int     `json:"winddir"`          // - [0-360 instantaneous wind direction]
+	WindSpeedMph       float64 `json:"windspeedmph"`     // - [mph instantaneous wind speed]
+	WindGustMph        float64 `json:"windgustmph"`      // - [mph current wind gust, using software specific time period]
+	WindGustDir        int     `json:"windgustdir"`      // - [0-360 using software specific time period]
+	WindSpeedMph_avg2m float64 `json:"windspdmph_avg2m"` // - [mph 2 minute average wind speed mph]
+	WindDir_avg2m      int     `json:"winddir_avg2m"`    // - [0-360 2 minute average wind direction]
+	WindGustMph_10m    float64 `json:"windgustmph_10m"`  // - [mph past 10 minutes wind gust mph ]
+	WindGustDir_10m    int     `json:"windgustdir_10m"`  // - [0-360 past 10 minutes wind gust direction]
+	Humidity           int     `json:"humidity"`         // - [% outdoor humidity 0-100%]
+	DewPtF             float64 `json:"dewptf"`           // - [F outdoor dewpoint F]
+	TempF              float64 `json:"tempf"`            // - [F outdoor temperature]
+	//   * for extra outdoor sensors use temp2f, temp3f, and so on
+	HourlyRainIn float64 `json:"rainin"`      // - [rain inches over the past hour)] -- the accumulated rainfall in the past 60 min
+	DailyRainIn  float64 `json:"dailyrainin"` // - [rain inches so far today in local time]
+	BaromAbsIn   float64 `json:"baromin"`     // - [barometric pressure inches]
+	//	Weather 			string	`json:"weather"`			// - [text] -- metar style (+RA)
+	//clouds - [text] -- SKC, FEW, SCT, BKN, OVC
+	//soiltempf - [F soil temperature]
+	//* for sensors 2,3,4 use soiltemp2f, soiltemp3f, and soiltemp4f
+	//soilmoisture - [%]
+	//* for sensors 2,3,4 use soilmoisture2, soilmoisture3, and soilmoisture4
+	//leafwetness  - [%]
+	//+ for sensor 2 use leafwetness2
+	SolarRadiation float64 `json:"solarradiation"` // - [W/m^2]
+	Uv             int     `json:"UV"`             // - [index]
+	//visibility - [nm visibility]
+	TempInF    float64 `json:"indoortempf"`    // - [F indoor temperature F]
+	HumidityIn int     `json:"indoorhumidity"` // - [% indoor humidity 0-100]
+}
+
 func computeDewPt(temp float64, humidity int) float64 {
 	// DP = T - 9/25(100 - RH)
 	dp := temp - (float64(9) / float64(25) * (100 - float64(humidity)))
@@ -51,8 +86,20 @@ func computeDewPt(temp float64, humidity int) float64 {
 	return dp
 }
 
+func hasProperty(s interface{}, propertyName string) bool {
+	v := reflect.ValueOf(s)
+	if v.Kind() == reflect.Ptr {
+		v = v.Elem()
+	}
+	if v.Kind() != reflect.Struct {
+		return false
+	}
+	return v.FieldByName(propertyName).IsValid()
+}
+
 func main() {
 	ListenPortPtr := flag.Int("port", 8080, "Port to listen on for requests from PWS")
+	//PwsProtocol := flag.String("proto", "AmbientWeather", "AmbientWeather | Wunderground")
 
 	// InfluxDB connection details (replace with your credentials)
 	IdbAddrPtr := flag.String("IdbAddr", "http://192.168.86.36:8086", "URL to InfluxDB")
@@ -94,7 +141,12 @@ func main() {
 		queryParams := r.URL.Query()
 
 		// Create a new WeatherData struct
+		//var data interface{}
+		//if *PwsProtocol == "Wunderground" {
+		//	data = Wunderground{}
+		//} else {
 		data := WeatherData{}
+		//}
 
 		// Loop through query params and populate struct fields
 		for key, value := range queryParams {
@@ -110,7 +162,20 @@ func main() {
 				data.DateUtc = strings.Replace(value[0], " ", "T", 1) + "Z"
 
 			// Parse numeric values
-			case "tempf", "tempinf", "windspeedmph", "windgustmph", "maxdailygust", "solarradiation", "hourlyrainin", "eventrainin", "dailyrainin", "weeklyrainin", "monthlyrainin", "yearlyrainin", "baromrelin", "baromabsin":
+			case "tempf",
+				"tempinf",
+				"windspeedmph",
+				"windgustmph",
+				"maxdailygust",
+				"solarradiation",
+				"hourlyrainin",
+				"eventrainin",
+				"dailyrainin",
+				"weeklyrainin",
+				"monthlyrainin",
+				"yearlyrainin",
+				"baromrelin",
+				"baromabsin":
 				var fval float64
 				if _, err := fmt.Sscanln(value[0], &fval); err != nil {
 					fmt.Println("Error parsing value for", key, err)
@@ -123,7 +188,14 @@ func main() {
 				fieldValue.Set(reflect.ValueOf(fval))
 
 			// Parse integer values
-			case "humidity", "winddir", "winddir_avg10m", "uv", "battout", "battrain", "humidityin", "battin":
+			case "humidity",
+				"winddir",
+				"winddir_avg10m",
+				"uv",
+				"battout",
+				"battrain",
+				"humidityin",
+				"battin":
 				var ival int
 				if _, err := fmt.Sscanln(value[0], &ival); err != nil {
 					fmt.Println("Error parsing value for", key, err)

@@ -1,4 +1,4 @@
-module pws/handler
+module outpointllc.com/pws-handler
 
 go 1.22.2
 
