@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"net/http"
@@ -10,7 +11,12 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
-	"github.com/influxdata/influxdb/client/v2"
+
+	"os"
+
+	influxdb2 "github.com/influxdata/influxdb-client-go/v2"
+	"github.com/influxdata/influxdb-client-go/v2/api/write"
+
 	"github.com/mcuadros/go-lookup"
 )
 
@@ -55,33 +61,17 @@ func main() {
 	ListenPortPtr := flag.Int("port", 8080, "Port to listen on for requests from PWS")
 
 	// InfluxDB connection details (replace with your credentials)
-	IdbAddrPtr := flag.String("IdbAddr", "http://192.168.86.36:8086", "URL to InfluxDB")
-	IdbUserPtr := flag.String("IdbUser", "mydb", "InfluxDB username")
-	IdbPassPtr := flag.String("IdbPass", "mydb", "InfluxDB password")
+	IdbToken := os.Getenv("INFLUXDB_TOKEN")
+	IdbUrl := os.Getenv("INFLUXDB_URL")
+	IdbOrg := os.Getenv("INFLUXDB_ORG")
+	IdbBucket := os.Getenv("INFLUXDB_BUCKET")
 
 	flag.Parse()
 
-	// client := influxdb.NewClient(influxURL, token)
-	c, err := client.NewHTTPClient(client.HTTPConfig{
-		Addr:     *IdbAddrPtr,
-		Username: *IdbUserPtr,
-		Password: *IdbPassPtr,
-	})
-	if err != nil {
-		fmt.Println("Error creating InfluxDB client:", err)
-		return
-	}
-	defer c.Close()
+	IdbClient := influxdb2.NewClient(IdbUrl, IdbToken)
 
 	// Create a new point batch
-	bp, err := client.NewBatchPoints(client.BatchPointsConfig{
-		Database:  "mydb",
-		Precision: "s",
-	})
-	if err != nil {
-		fmt.Println("Error creating point batch:", err)
-		return
-	}
+	IdbWriteAPI := IdbClient.WriteAPIBlocking(IdbOrg, IdbBucket)
 
 	// Create a new router
 	router := mux.NewRouter()
@@ -180,16 +170,10 @@ func main() {
 			return
 		}
 
-		p, err := client.NewPoint("weather", tags, fields, pdate)
-		if err != nil {
-			fmt.Println("Error creating NewPoint", err)
-			return
-		}
-
-		bp.AddPoint(p)
+		p := write.NewPoint("weather", tags, fields, pdate)
 
 		// Write the point to InfluxDB
-		if err := c.Write(bp); err != nil {
+		if err := IdbWriteAPI.WritePoint(context.Background(), p); err != nil {
 			fmt.Println("Error writing batch points:", err)
 			fmt.Println(tags)
 			fmt.Println(fields)
@@ -201,7 +185,7 @@ func main() {
 
 	// Start the server
 	fmt.Printf("Server listening on port %d\n", *ListenPortPtr)
-	fmt.Printf("Muxing to %s\n", *IdbAddrPtr)
+	fmt.Printf("Muxing to %s\n", *&IdbUrl)
 
 	// Create the HTTP server
 	srv := http.Server{

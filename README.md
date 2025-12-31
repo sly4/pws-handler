@@ -7,7 +7,16 @@ Having the weather data in InfuxDB allows one to use Grafana or other graphing t
 My weather station is a WS5000 running AMBWeatherPro_V5.1.7.
 
 ## How to use
-`pws-handler -port=8080 -IdbAddr=http://xxx.xxx.xxx.xxx:port -IdbUser=someuser -IdbPass=somepass`
+Set the following environment variables:
+- INFLUXDB_URL
+- INFLUXDB_ORG
+- INFLUXDB_BUCKET
+- INFLUXDB_TOKEN
+
+Then run:
+`pws-handler -port=8080`
+
+The process will listen on port 8080 if not specified.
 
 ## NOTE:
-Set max-body-size=0 in your influxd.conf file.
+Set max-body-size=0 in your influxd.conf file. (This might only apply toInfluxDB 1.8)

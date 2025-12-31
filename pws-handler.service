@@ -1,0 +1,19 @@
+[Unit]
+Description=PWS Handler Service
+#Documentation=
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+#EnvironmentFile=
+User=root
+Group=root
+Type=simple
+Restart=on-failure
+WorkingDirectory=/app
+RuntimeDirectory=/app
+RuntimeDirectoryMode=0777
+ExecStart=/app/pws-handler
+
+[Install]
+WantedBy=multi-user.target
