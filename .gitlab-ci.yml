@@ -1,11 +1,3 @@
-# You can copy and paste this template into a new `.gitlab-ci.yml` file.
-# You should not add this template to an existing `.gitlab-ci.yml` file by using the `include:` keyword.
-#
-# To contribute improvements to CI/CD templates, please follow the Development guide at:
-# https://docs.gitlab.com/ee/development/cicd/templates.html
-# This specific template is located at:
-# https://gitlab.com/gitlab-org/gitlab/-/blob/master/lib/gitlab/ci/templates/Go.gitlab-ci.yml
-
 image: golang:latest
 
 stages:
@@ -13,6 +5,9 @@ stages:
   - build
   - deploy
 
+# -----------------
+# 1. TEST STAGE
+# -----------------
 format:
   stage: test
   script:
@@ -20,6 +15,9 @@ format:
     - go vet $(go list ./... | grep -v /vendor/)
     - go test -race $(go list ./... | grep -v /vendor/)
 
+# -----------------
+# 2. BUILD STAGE (Binaries)
+# -----------------
 compilebsd:
   stage: build
   variables:
@@ -44,10 +42,45 @@ compilelinux:
     paths:
       - mybinaries
 
-deploy:
+# -----------------
+# 3. DEPLOY STAGE (Docker Push)
+# -----------------
+# ... (Tests and Build stages remain the same) ...
+
+build_and_push_docker:
   stage: deploy
-  script: echo "Define your deployment script!"
-  environment: production
+  image: docker:latest
+  services:
+    - docker:dind
+  variables:
+    DOCKER_DRIVER: overlay2
+    DOCKER_TLS_CERTDIR: ""
+    # Docker Hub Tag
+    HUB_TAG: $DOCKER_HUB_USER/weather-receiver:latest
+    # Outpoint Registry Tag
+    # Note: We must include the registry hostname in the tag so Docker knows where to push it
+    OUTPOINT_TAG: reg.outpointllc.com/john/weather-receiver:latest
+  script:
+    # --- 1. Build the Image ---
+    - docker build -t $HUB_TAG .
+
+    # --- 2. Push to Docker Hub ---
+    - echo "$DOCKER_HUB_TOKEN" | docker login -u "$DOCKER_HUB_USER" --password-stdin
+    - docker push $HUB_TAG
+    - docker logout
+
+    # --- 3. Push to Outpoint Registry ---
+    # We retag the existing image with the new registry URL
+    - docker tag $HUB_TAG $OUTPOINT_TAG
+    
+    # Login to the specific private registry host
+    - echo "$OUTPOINT_REGISTRY_TOKEN" | docker login reg.outpointllc.com -u "$OUTPOINT_REGISTRY_USER" --password-stdin
+    - docker push $OUTPOINT_TAG
+    - docker logout reg.outpointllc.com
+
+  only:
+    - master
+    - main
 
 include:
   - template: Jobs/Secret-Detection.gitlab-ci.yml
