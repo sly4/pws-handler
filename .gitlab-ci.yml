@@ -43,11 +43,12 @@ compilelinux:
       - mybinaries
 
 # -----------------
-# 3. DEPLOY STAGE (Docker Push)
+# 3. DEPLOY STAGE
 # -----------------
-# ... (Tests and Build stages remain the same) ...
 
-build_and_push_docker:
+# JOB A: Standard Master Merge
+# Pushes ":latest" and ":<commit-sha>" (e.g. :a1b2c3d)
+build_and_push_commit:
   stage: deploy
   image: docker:latest
   services:
@@ -55,32 +56,67 @@ build_and_push_docker:
   variables:
     DOCKER_DRIVER: overlay2
     DOCKER_TLS_CERTDIR: ""
-    # Docker Hub Tag
-    HUB_TAG: $DOCKER_HUB_USER/weather-receiver:latest
-    # Outpoint Registry Tag
-    # Note: We must include the registry hostname in the tag so Docker knows where to push it
-    OUTPOINT_TAG: reg.outpointllc.com/john/weather-receiver:latest
+    # Base Image Names
+    HUB_IMAGE: $DOCKER_HUB_USER/weather-receiver
+    OUTPOINT_IMAGE: reg.outpointllc.com/john/weather-receiver
   script:
-    # --- 1. Build the Image ---
-    - docker build -t $HUB_TAG .
+    # 1. Build with SHA tag (Primary) and 'latest' tag (Secondary)
+    - docker build -t $HUB_IMAGE:$CI_COMMIT_SHORT_SHA -t $HUB_IMAGE:latest .
 
-    # --- 2. Push to Docker Hub ---
+    # 2. Push to Docker Hub (Both tags)
     - echo "$DOCKER_HUB_TOKEN" | docker login -u "$DOCKER_HUB_USER" --password-stdin
-    - docker push $HUB_TAG
+    - docker push $HUB_IMAGE:$CI_COMMIT_SHORT_SHA
+    - docker push $HUB_IMAGE:latest
     - docker logout
 
-    # --- 3. Push to Outpoint Registry ---
-    # We retag the existing image with the new registry URL
-    - docker tag $HUB_TAG $OUTPOINT_TAG
+    # 3. Tag & Push to Outpoint Registry (Both tags)
+    - docker tag $HUB_IMAGE:$CI_COMMIT_SHORT_SHA $OUTPOINT_IMAGE:$CI_COMMIT_SHORT_SHA
+    - docker tag $HUB_IMAGE:latest $OUTPOINT_IMAGE:latest
     
-    # Login to the specific private registry host
     - echo "$OUTPOINT_REGISTRY_TOKEN" | docker login reg.outpointllc.com -u "$OUTPOINT_REGISTRY_USER" --password-stdin
-    - docker push $OUTPOINT_TAG
+    - docker push $OUTPOINT_IMAGE:$CI_COMMIT_SHORT_SHA
+    - docker push $OUTPOINT_IMAGE:latest
+    - docker logout reg.outpointllc.com
+  
+  # Only run on master branch (not on tags)
+  rules:
+    - if: $CI_COMMIT_TAG
+      when: never
+    - if: $CI_COMMIT_BRANCH == "master"
+    - if: $CI_COMMIT_BRANCH == "main"
+
+# JOB B: Release Tag
+# Pushes ":v1.0.0" (or whatever the git tag is)
+build_and_push_release:
+  stage: deploy
+  image: docker:latest
+  services:
+    - docker:dind
+  variables:
+    DOCKER_DRIVER: overlay2
+    DOCKER_TLS_CERTDIR: ""
+    # Base Image Names
+    HUB_IMAGE: $DOCKER_HUB_USER/weather-receiver
+    OUTPOINT_IMAGE: reg.outpointllc.com/john/weather-receiver
+  script:
+    # 1. Build using the Git Tag (e.g. v1.0.0)
+    - docker build -t $HUB_IMAGE:$CI_COMMIT_TAG .
+
+    # 2. Push to Docker Hub
+    - echo "$DOCKER_HUB_TOKEN" | docker login -u "$DOCKER_HUB_USER" --password-stdin
+    - docker push $HUB_IMAGE:$CI_COMMIT_TAG
+    - docker logout
+
+    # 3. Push to Outpoint Registry
+    - docker tag $HUB_IMAGE:$CI_COMMIT_TAG $OUTPOINT_IMAGE:$CI_COMMIT_TAG
+    
+    - echo "$OUTPOINT_REGISTRY_TOKEN" | docker login reg.outpointllc.com -u "$OUTPOINT_REGISTRY_USER" --password-stdin
+    - docker push $OUTPOINT_IMAGE:$CI_COMMIT_TAG
     - docker logout reg.outpointllc.com
 
+  # Only run when a Git Tag is created
   only:
-    - master
-    - main
+    - tags
 
 include:
   - template: Jobs/Secret-Detection.gitlab-ci.yml
